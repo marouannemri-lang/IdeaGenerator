@@ -20,7 +20,21 @@ app.use('/api/', limiter);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
+import { clientRouter } from './routes/client.routes';
+import { quoteRouter } from './routes/quote.routes';
+import { invoiceRouter } from './routes/invoice.routes';
+
+import { dashboardRouter } from './routes/dashboard.routes';
+import { userSettingsRouter } from './routes/user-settings.routes';
+
 app.use('/api/auth', authRouter);
+app.use('/api/clients', clientRouter);
+app.use('/api/quotes', quoteRouter);
+app.use('/api/invoices', invoiceRouter);
+app.use('/api/dashboard', dashboardRouter);
+app.use('/api/settings', userSettingsRouter);
+
+
 
 app.use(errorHandler);
 

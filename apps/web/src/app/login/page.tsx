@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { apiClient } from '@/lib/api-client';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -16,47 +17,57 @@ export default function LoginPage() {
             apiClient.setTokens(res.data.accessToken, res.data.refreshToken);
             router.push('/dashboard');
         } catch (err: any) {
-            setError(err.response?.data?.error?.message || 'Une erreur est survenue');
+            setError(err.response?.data?.error?.message || 'Identifiants invalides');
         }
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center p-4">
-            <div className="w-full max-w-sm space-y-4 rounded-lg border p-6 shadow-lg">
-                <h1 className="text-2xl font-bold">Connexion</h1>
+        <div className="flex min-h-screen items-center justify-center p-4 bg-gray-50">
+            <div className="w-full max-w-sm space-y-6 rounded-lg border bg-white p-8 shadow-lg">
+                <div className="text-center">
+                    <h1 className="text-3xl font-bold tracking-tight">Connexion</h1>
+                    <p className="text-sm text-gray-500 mt-2">Accédez à votre espace TalentFlow</p>
+                </div>
 
                 {error && (
-                    <div className="bg-red-100 p-2 text-red-600 rounded text-sm">
+                    <div className="bg-destructive/15 p-3 text-destructive rounded text-sm text-center">
                         {error}
                     </div>
                 )}
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium">Email</label>
+                        <label className="block text-sm font-medium mb-1">Email</label>
                         <input
                             {...register('email', { required: true })}
-                            className="mt-1 block w-full rounded-md border p-2"
+                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             type="email"
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium">Mot de passe</label>
+                        <label className="block text-sm font-medium mb-1">Mot de passe</label>
                         <input
                             {...register('password', { required: true })}
-                            className="mt-1 block w-full rounded-md border p-2"
+                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             type="password"
                         />
                     </div>
 
                     <button
                         type="submit"
-                        className="w-full rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                        className="w-full rounded-md bg-primary py-2 text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
                     >
                         Se connecter
                     </button>
                 </form>
+
+                <div className="text-center text-sm">
+                    Pas encore de compte ?{' '}
+                    <Link href="/register" className="font-medium text-primary hover:underline">
+                        S'inscrire
+                    </Link>
+                </div>
             </div>
         </div>
     );
