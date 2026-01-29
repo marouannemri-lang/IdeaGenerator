@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USER ====================
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  firstName    String?   @map("first_name")
+  lastName     String?   @map("last_name")
+  businessName String?   @map("business_name")
+  siret        String?   @unique
+  tva          String?
+  phoneNumber  String?   @map("phone_number")
+  plan         Plan      @default(FREE)
+  
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  lastLoginAt  DateTime? @map("last_login_at")
+  
+  clients      Client[]
+  quotes       Quote[]
+  invoices     Invoice[]
+  calls        MissedCall[]
+  settings     UserSettings?
+  
+  @@map("users")
+}
+
+enum Plan {
+  FREE
+  PRO
+  AGENCE
+}
+
+model UserSettings {
+  id                   String  @id @default(uuid())
+  userId               String  @unique @map("user_id")
+  user                 User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  missedCallEnabled    Boolean @default(false)
+  autoResponseSms      String? @map("auto_response_sms")
+  defaultTva           Float   @default(20.0)
+  quoteReminderDays    Int[]   @default([3, 7, 14])
+  invoiceReminderDays  Int[]   @default([0, 7, 14, 30])
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  @@map("user_settings")
+}
+
+// ==================== CLIENT ====================
+model Client {
+  id           String     @id @default(uuid())
+  userId       String     @map("user_id")
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  firstName    String?    @map("first_name")
+  lastName     String?    @map("last_name")
+  companyName  String?    @map("company_name")
+  email        String?
+  phoneNumber  String?    @map("phone_number")
+  address      String?
+  
+  type         ClientType @default(PROSPECT)
+  totalRevenue Float      @default(0)
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  
+  quotes       Quote[]
+  invoices     Invoice[]
+  calls        MissedCall[]
+  
+  @@map("clients")
+  @@index([userId])
+}
+
+enum ClientType {
+  PROSPECT
+  CLIENT
+  INACTIVE
+}
+
+// ==================== QUOTE ====================
+model Quote {
+  id          String      @id @default(uuid())
+  userId      String      @map("user_id")
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId    String      @map("client_id")
+  client      Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  quoteNumber String      @unique @map("quote_number")
+  title       String?
+  description String?
+  items       QuoteItem[]
+  
+  subtotal    Float       @default(0)
+  tvaRate     Float       @default(20.0)
+  tvaAmount   Float       @default(0)
+  total       Float       @default(0)
+  
+  status      QuoteStatus @default(DRAFT)
+  validUntil  DateTime?   @map("valid_until")
+  pdfUrl      String?     @map("pdf_url")
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  sentAt      DateTime?   @map("sent_at")
+  
+  invoice     Invoice?
+  
+  @@map("quotes")
+  @@index([userId, status])
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model QuoteItem {
+  id          String @id @default(uuid())
+  quoteId     String @map("quote_id")
+  quote       Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  
+  description String
+  quantity    Float
+  unitPrice   Float  @map("unit_price")
+  total       Float
+  order       Int    @default(0)
+  
+  @@map("quote_items")
+}
+
+// ==================== INVOICE ====================
+model Invoice {
+  id             String        @id @default(uuid())
+  userId         String        @map("user_id")
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId       String        @map("client_id")
+  client         Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  quoteId        String?       @unique @map("quote_id")
+  quote          Quote?        @relation(fields: [quoteId], references: [id])
+  
+  invoiceNumber  String        @unique @map("invoice_number")
+  title          String?
+  items          InvoiceItem[]
+  
+  subtotal       Float         @default(0)
+  tvaAmount      Float         @default(0)
+  total          Float         @default(0)
+  
+  status         InvoiceStatus @default(PENDING)
+  dueDate        DateTime      @map("due_date")
+  paidAt         DateTime?     @map("paid_at")
+  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  
+  @@map("invoices")
+  @@index([userId, status])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  PAID
+  OVERDUE
+}
+
+model InvoiceItem {
+  id          String  @id @default(uuid())
+  invoiceId   String  @map("invoice_id")
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  description String
+  quantity    Float
+  unitPrice   Float   @map("unit_price")
+  total       Float
+  
+  @@map("invoice_items")
+}
+
+// ==================== MISSED CALL ====================
+model MissedCall {
+  id             String       @id @default(uuid())
+  userId         String       @map("user_id")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId       String?      @map("client_id")
+  client         Client?      @relation(fields: [clientId], references: [id])
+  
+  callerNumber   String       @map("caller_number")
+  recordingUrl   String?      @map("recording_url")
+  transcription  String?
+  summary        String?
+  category       CallCategory?
+  urgency        Urgency      @default(NORMAL)
+  
+  status         CallStatus   @default(NEW)
+  createdAt      DateTime     @default(now())
+  
+  @@map("missed_calls")
+  @@index([userId, status])
+}
+
+enum CallCategory {
+  NEW_PROSPECT
+  EXISTING_CLIENT
+  SUPPLIER
+  SPAM
+}
+
+enum Urgency {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum CallStatus {
+  NEW
+  RESPONDED
+  DISMISSED
+}
