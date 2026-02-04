@@ -24,9 +24,20 @@ export class ClientService {
         });
     }
 
-    async findAll(userId: string) {
+    async findAll(userId: string, search?: string) {
+        const where: any = { userId };
+        if (search) {
+            where.OR = [
+                { firstName: { contains: search, mode: 'insensitive' } },
+                { lastName: { contains: search, mode: 'insensitive' } },
+                { companyName: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+                { phoneNumber: { contains: search, mode: 'insensitive' } },
+            ];
+        }
+
         return prisma.client.findMany({
-            where: { userId },
+            where,
             orderBy: { createdAt: 'desc' },
             include: {
                 _count: {
@@ -40,8 +51,9 @@ export class ClientService {
         return prisma.client.findFirst({
             where: { id: clientId, userId },
             include: {
-                quotes: { orderBy: { createdAt: 'desc' }, take: 5 },
-                invoices: { orderBy: { createdAt: 'desc' }, take: 5 },
+                quotes: { orderBy: { createdAt: 'desc' } },
+                invoices: { orderBy: { createdAt: 'desc' } },
+                calls: { orderBy: { createdAt: 'desc' } }
             },
         });
     }

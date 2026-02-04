@@ -10,7 +10,8 @@ import {
     Receipt,
     Users,
     Settings,
-    LogOut
+    LogOut,
+    Package
 } from 'lucide-react';
 
 const routes = [
@@ -43,6 +44,12 @@ const routes = [
         icon: Users,
         href: '/clients',
         color: 'text-emerald-500',
+    },
+    {
+        label: 'Produits',
+        icon: Package,
+        href: '/products',
+        color: 'text-blue-500',
     },
     {
         label: 'Paramètres',

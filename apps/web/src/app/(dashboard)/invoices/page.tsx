@@ -4,8 +4,9 @@ import * as React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/api-client';
-import { Receipt, Download, MoreVertical, checkCircle2, XCircle, CreditCard } from 'lucide-react';
+import { Receipt, Download, MoreVertical, CheckCircle2, XCircle, CreditCard, Pencil } from 'lucide-react';
 import { generateInvoicePdf } from '@/lib/pdf-generator';
+import Link from 'next/link';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -14,17 +15,19 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { SearchInput } from '@/components/ui/search-input';
 
 export default function InvoicesPage() {
     const [invoices, setInvoices] = React.useState<any[]>([]);
     const [loading, setLoading] = React.useState(true);
-    // Simulation user user
+    const [searchTerm, setSearchTerm] = React.useState('');
     const currentUser = { firstName: 'Moi', lastName: 'Même', businessName: 'Mon Entreprise', email: 'me@test.com' };
 
-    const loadInvoices = React.useCallback(async () => {
+    const loadInvoices = React.useCallback(async (search?: string) => {
         try {
             setLoading(true);
-            const res = await apiClient.get('/invoices');
+            const params = search ? `?search=${encodeURIComponent(search)}` : '';
+            const res = await apiClient.get(`/invoices${params}`);
             setInvoices(res.data);
         } catch (error) {
             console.error('Erreur chargement factures', error);
@@ -34,8 +37,11 @@ export default function InvoicesPage() {
     }, []);
 
     React.useEffect(() => {
-        loadInvoices();
-    }, [loadInvoices]);
+        const timer = setTimeout(() => {
+            loadInvoices(searchTerm);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchTerm, loadInvoices]);
 
     const handleDownloadPdf = (e: React.MouseEvent, invoice: any) => {
         e.stopPropagation();
@@ -56,6 +62,11 @@ export default function InvoicesPage() {
         <div className="p-8 space-y-8">
             <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-bold tracking-tight">Factures</h2>
+                <SearchInput
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Rechercher une facture..."
+                />
             </div>
 
             <Card>
@@ -89,11 +100,17 @@ export default function InvoicesPage() {
                                     <div className="text-right flex items-center gap-4">
                                         <div className="font-bold text-lg mr-4">{invoice.total.toFixed(2)} €</div>
                                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold mr-4 ${invoice.status === 'PAID' ? 'bg-green-100 text-green-800' :
-                                                invoice.status === 'OVERDUE' ? 'bg-red-100 text-red-800' :
-                                                    'bg-yellow-100 text-yellow-800'
+                                            invoice.status === 'OVERDUE' ? 'bg-red-100 text-red-800' :
+                                                'bg-yellow-100 text-yellow-800'
                                             }`}>
                                             {invoice.status === 'PENDING' ? 'EN ATTENTE' : invoice.status === 'PAID' ? 'PAYÉE' : invoice.status}
                                         </span>
+
+                                        <Link href={`/invoices/${invoice.id}`}>
+                                            <Button variant="ghost" size="icon" title="Modifier">
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                        </Link>
 
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
@@ -109,13 +126,13 @@ export default function InvoicesPage() {
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuLabel>Changer Statut</DropdownMenuLabel>
                                                 <DropdownMenuItem onClick={() => handleStatusChange(invoice.id, 'PAID')} disabled={invoice.status === 'PAID'}>
-                                                    <CreditCard className="mr-2 h-4 w-4 text-green-600" /> Marquer comme Payée
+                                                    <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" /> Marquer comme Payée
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => handleStatusChange(invoice.id, 'PENDING')} disabled={invoice.status === 'PENDING'}>
                                                     Remettre En Attente
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => handleStatusChange(invoice.id, 'CANCELLED')} className="text-red-600">
-                                                    Annuler la facture
+                                                    <XCircle className="mr-2 h-4 w-4" /> Annuler la facture
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>

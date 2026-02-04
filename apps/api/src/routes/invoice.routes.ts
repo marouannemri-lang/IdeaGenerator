@@ -8,8 +8,19 @@ router.use(authenticate);
 
 router.get('/', async (req, res, next) => {
     try {
-        const invoices = await invoiceService.findAll(req.user!.userId);
+        const search = req.query.search as string | undefined;
+        const invoices = await invoiceService.findAll(req.user!.userId, search);
         res.json({ success: true, data: invoices });
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.get('/:id', async (req, res, next) => {
+    try {
+        const invoice = await invoiceService.findOne(req.user!.userId, req.params.id);
+        if (!invoice) return res.status(404).json({ success: false, error: 'Not found' });
+        res.json({ success: true, data: invoice });
     } catch (error) {
         next(error);
     }
@@ -27,6 +38,15 @@ router.post('/from-quote/:quoteId', async (req, res, next) => {
 router.patch('/:id/status', async (req, res, next) => {
     try {
         const invoice = await invoiceService.updateStatus(req.user!.userId, req.params.id, req.body.status);
+        res.json({ success: true, data: invoice });
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.patch('/:id', async (req, res, next) => {
+    try {
+        const invoice = await invoiceService.update(req.user!.userId, req.params.id, req.body);
         res.json({ success: true, data: invoice });
     } catch (error) {
         next(error);

@@ -57,12 +57,24 @@ export class QuoteService {
         });
     }
 
-    async findAll(userId: string) {
+    async findAll(userId: string, search?: string) {
+        const where: any = { userId };
+        if (search) {
+            where.OR = [
+                { quoteNumber: { contains: search, mode: 'insensitive' } },
+                { title: { contains: search, mode: 'insensitive' } },
+                { client: { companyName: { contains: search, mode: 'insensitive' } } },
+                { client: { firstName: { contains: search, mode: 'insensitive' } } },
+                { client: { lastName: { contains: search, mode: 'insensitive' } } },
+            ];
+        }
+
         return prisma.quote.findMany({
-            where: { userId },
+            where,
             orderBy: { createdAt: 'desc' },
             include: {
                 client: true,
+                invoice: true,
             },
             take: 50,
         });
@@ -75,6 +87,54 @@ export class QuoteService {
                 client: true,
                 items: { orderBy: { order: 'asc' } },
             },
+        });
+    }
+
+    async update(userId: string, quoteId: string, data: Partial<CreateQuoteInput> & { status?: any }) {
+        const quote = await prisma.quote.findFirst({
+            where: { id: quoteId, userId },
+        });
+
+        if (!quote) throw new Error('Quote not found');
+
+        let itemUpdates = {};
+        let totalsUpdate = {};
+
+        if (data.items) {
+            // Delete existing items
+            await prisma.quoteItem.deleteMany({ where: { quoteId } });
+
+            // Calculate new totals
+            let subtotal = 0;
+            const itemsWithTotal = data.items.map((item, index) => {
+                const total = item.quantity * item.unitPrice;
+                subtotal += total;
+                return { ...item, total, order: index };
+            });
+
+            const tvaRate = (quote as any).tvaRate || 20.0;
+            const tvaAmount = subtotal * (tvaRate / 100);
+            const total = subtotal + tvaAmount;
+
+            itemUpdates = {
+                items: {
+                    create: itemsWithTotal
+                }
+            };
+            totalsUpdate = { subtotal, tvaAmount, total };
+        }
+
+        return prisma.quote.update({
+            where: { id: quoteId },
+            data: {
+                title: data.title,
+                status: data.status,
+                clientId: data.clientId ? data.clientId : undefined,
+                validUntil: data.validUntil ? new Date(data.validUntil) : undefined,
+                ...itemUpdates,
+                ...totalsUpdate
+            },
+            include: { items: true, client: true }
         });
     }
 }

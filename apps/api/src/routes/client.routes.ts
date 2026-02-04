@@ -8,7 +8,8 @@ router.use(authenticate);
 
 router.get('/', async (req, res, next) => {
     try {
-        const clients = await clientService.findAll(req.user!.userId);
+        const search = req.query.search as string | undefined;
+        const clients = await clientService.findAll(req.user!.userId, search);
         res.json({ success: true, data: clients });
     } catch (error) {
         next(error);

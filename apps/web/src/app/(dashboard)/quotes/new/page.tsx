@@ -14,6 +14,7 @@ import Link from 'next/link';
 export default function NewQuotePage() {
     const router = useRouter();
     const [clients, setClients] = React.useState<any[]>([]);
+    const [services, setServices] = React.useState<any[]>([]);
 
     const { register, control, handleSubmit, watch, setValue } = useForm({
         defaultValues: {
@@ -29,16 +30,25 @@ export default function NewQuotePage() {
     });
 
     const items = watch('items');
-    const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    const safeItems = Array.isArray(items) ? items : [];
+    const subtotal = safeItems.reduce((sum, item) => sum + ((item.quantity || 0) * (item.unitPrice || 0)), 0);
     const tva = subtotal * 0.20;
     const total = subtotal + tva;
 
     React.useEffect(() => {
-        async function loadClients() {
-            const res = await apiClient.get('/clients');
-            setClients(res.data);
+        async function loadData() {
+            try {
+                const [clientsRes, servicesRes] = await Promise.all([
+                    apiClient.get('/clients'),
+                    apiClient.get('/settings/services')
+                ]);
+                setClients(clientsRes.data);
+                setServices(servicesRes.data);
+            } catch (error) {
+                console.error('Erreur loading data', error);
+            }
         };
-        loadClients();
+        loadData();
     }, []);
 
     const onSubmit = async (data: any) => {
@@ -99,7 +109,27 @@ export default function NewQuotePage() {
                         {fields.map((field, index) => (
                             <div key={field.id} className="grid grid-cols-12 gap-4 items-end bg-muted/50 p-4 rounded-lg">
                                 <div className="col-span-6 space-y-2">
-                                    <Label>Description</Label>
+                                    <div className="flex justify-between items-center">
+                                        <Label>Description</Label>
+                                        {services.length > 0 && (
+                                            <select
+                                                className="text-xs h-6 max-w-[150px] rounded border border-input bg-background px-2 overflow-hidden text-ellipsis whitespace-nowrap"
+                                                onChange={(e) => {
+                                                    const s = services.find(x => x.id === e.target.value);
+                                                    if (s) {
+                                                        setValue(`items.${index}.description`, s.name);
+                                                        setValue(`items.${index}.unitPrice`, Number(s.basePrice));
+                                                    }
+                                                    e.target.value = "";
+                                                }}
+                                            >
+                                                <option value="">Importer Modèle...</option>
+                                                {services.map(s => (
+                                                    <option key={s.id} value={s.id}>{s.name} ({s.basePrice}€)</option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </div>
                                     <Input {...register(`items.${index}.description` as const, { required: true })} placeholder="Désignation" />
                                 </div>
                                 <div className="col-span-2 space-y-2">

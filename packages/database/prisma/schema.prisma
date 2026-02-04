@@ -30,6 +30,16 @@ model User {
   calls        MissedCall[]
   settings     UserSettings?
   
+  // Multi-Tenant Settings
+  whatsappNumber   String?               @unique @map("whatsapp_number")
+  whatsappVerified Boolean               @default(false) @map("whatsapp_verified")
+  
+  businessSettings BusinessSettings?
+  aiSettings       AiSettings?
+  serviceCatalog   ServiceCatalog[]
+  messageTemplates MessageTemplate[]
+  promptConfigs    PromptConfiguration[]
+  
   @@map("users")
 }
 
@@ -70,7 +80,12 @@ model Client {
   address      String?
   
   type         ClientType @default(PROSPECT)
-  totalRevenue Float      @default(0)
+  totalRevenue Float      @default(0) @map("total_revenue")
+  
+  // N8N fields
+  status          String?   @default("ACTIVE") // ACTIVE, BLOCKED
+  notes           String?   @db.Text
+  lastInteraction DateTime? @map("last_interaction")
   
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -78,6 +93,8 @@ model Client {
   quotes       Quote[]
   invoices     Invoice[]
   calls        MissedCall[]
+  messages     Message[]
+  interventions Intervention[]
   
   @@map("clients")
   @@index([userId])
@@ -103,9 +120,14 @@ model Quote {
   items       QuoteItem[]
   
   subtotal    Float       @default(0)
-  tvaRate     Float       @default(20.0)
-  tvaAmount   Float       @default(0)
+  tvaRate     Float       @default(20.0) @map("tva_rate")
+  tvaAmount   Float       @default(0) @map("tva_amount")
   total       Float       @default(0)
+  
+  // N8N fields
+  markupPercentage  Float?   @default(30) @map("markup_percentage")
+  estimatedDuration String?  @map("estimated_duration")
+  validityDays      Int      @default(30) @map("validity_days")
   
   status      QuoteStatus @default(DRAFT)
   validUntil  DateTime?   @map("valid_until")
@@ -116,6 +138,9 @@ model Quote {
   sentAt      DateTime?   @map("sent_at")
   
   invoice     Invoice?
+  comments    QuoteComment[]
+  attachments QuoteAttachment[]
+  interventions Intervention[]
   
   @@map("quotes")
   @@index([userId, status])
@@ -141,6 +166,38 @@ model QuoteItem {
   order       Int    @default(0)
   
   @@map("quote_items")
+}
+
+model QuoteComment {
+  id        String   @id @default(uuid())
+  quoteId   String   @map("quote_id")
+  quote     Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  
+  content   String   @db.Text
+  author    String   @default("client") // "client" or "admin"
+  source    String?  // "whatsapp", "web", "n8n"
+  
+  createdAt DateTime @default(now())
+  
+  @@map("quote_comments")
+  @@index([quoteId])
+}
+
+model QuoteAttachment {
+  id          String   @id @default(uuid())
+  quoteId     String   @map("quote_id")
+  quote       Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  
+  fileName    String   @map("file_name")
+  fileUrl     String   @map("file_url")
+  fileType    String   @map("file_type") // "image", "document", "audio"
+  fileSize    Int?     @map("file_size") // in bytes
+  source      String?  // "whatsapp", "web", "n8n"
+  
+  createdAt   DateTime @default(now())
+  
+  @@map("quote_attachments")
+  @@index([quoteId])
 }
 
 // ==================== INVOICE ====================
@@ -232,3 +289,236 @@ enum CallStatus {
   RESPONDED
   DISMISSED
 }
+
+// ==================== MULTI-TENANT SETTINGS ====================
+
+model BusinessSettings {
+  id String @id @default(uuid())
+  userId String @unique @map("user_id")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  workingHours Json? @default("{}") @map("working_hours")
+  serviceArea Json? @default("[]") @map("service_area")
+  maxDistanceKm Int @default(50) @map("max_distance_km")
+
+  baseRatePerHour Decimal @default(60.00) @map("base_rate_per_hour")
+  emergencySurcharge Int @default(50) @map("emergency_surcharge_percentage")
+  weekendSurcharge Int @default(30) @map("weekend_surcharge_percentage")
+  nightSurcharge Int @default(40) @map("night_surcharge_percentage")
+
+  travelFee Decimal @default(50.00) @map("travel_fee")
+  freeTravelRadiusKm Int @default(10) @map("free_travel_radius_km")
+
+  defaultTva Decimal @default(20.00) @map("default_tva_rate")
+
+  quoteValidityDays Int @default(30) @map("quote_validity_days")
+  quotePrefix String @default("DEV") @map("quote_prefix")
+  autoQuoteGeneration Boolean @default(true) @map("auto_quote_generation")
+  requireApproval Boolean @default(true) @map("require_approval_before_send")
+
+  invoicePrefix String @default("FAC") @map("invoice_prefix")
+  paymentTermsDays Int @default(30) @map("payment_terms_days")
+  latePaymentFee Decimal @default(40.00) @map("late_payment_fee")
+
+  quoteReminderDays Int[] @default([3, 7, 14]) @map("quote_reminder_days")
+  invoiceReminderDays Int[] @default([0, 7, 14, 30]) @map("invoice_reminder_days")
+
+  logoUrl String? @map("logo_url")
+  brandColor String @default("#2563eb") @map("brand_color")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("business_settings")
+}
+
+model AiSettings {
+  id String @id @default(uuid())
+  userId String @unique @map("user_id")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  aiEnabled Boolean @default(true) @map("ai_enabled")
+  aiTone String @default("professional") @map("ai_tone")
+  aiName String @default("Assistant TalentFlow") @map("ai_name")
+
+  autoRespondEnabled Boolean @default(true) @map("auto_respond_enabled")
+  autoRespondDelay Int @default(5) @map("auto_respond_delay_seconds")
+
+  welcomeMessage String? @default("Bonjour ! Comment puis-je vous aider aujourd'hui ?") @map("welcome_message")
+  awayMessage String? @map("away_message")
+
+  customSystemPrompt String? @map("custom_system_prompt")
+
+  businessDescription String? @map("business_description")
+  specialties String[] 
+  typicalServices String[] @map("typical_services")
+
+  customKeywords Json? @default("{}") @map("custom_keywords")
+
+  emergencyAutoCreate Boolean @default(true) @map("emergency_auto_create")
+  emergencyNotifPhone String? @map("emergency_notification_phone")
+
+  maxAutoQuoteAmount Decimal @default(500.00) @map("max_auto_quote_amount")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("ai_settings")
+}
+
+model ServiceCatalog {
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name String
+  description String?
+  category String?
+  
+  basePrice Decimal @map("base_price")
+  unit String @default("forfait")
+
+  estimatedDuration Int? @map("estimated_duration_minutes")
+
+  isActive Boolean @default(true) @map("is_active")
+  isUrgentAvailable Boolean @default(true) @map("is_urgent_available")
+
+  displayOrder Int @default(0) @map("display_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, name])
+  @@map("service_catalog")
+}
+
+model MessageTemplate {
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  templateType String @map("template_type")
+  name String
+  messageText String @map("message_text")
+  availableVariables String[] @map("available_variables")
+
+  isActive Boolean @default(true) @map("is_active")
+  isDefault Boolean @default(false) @map("is_default")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, templateType, name])
+  @@map("message_templates")
+}
+
+model PromptConfiguration {
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  promptType String @map("prompt_type")
+  name String
+  systemPrompt String @map("system_prompt")
+  variables Json? @default("{}")
+
+  temperature Decimal @default(0.2)
+  maxTokens Int @default(1000) @map("max_tokens")
+  model String @default("llama-3.3-70b-versatile")
+
+  version Int @default(1)
+  isActive Boolean @default(true) @map("is_active")
+
+  usageCount Int @default(0) @map("usage_count")
+  successCount Int @default(0) @map("success_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, promptType, name])
+  @@map("prompt_configurations")
+}
+
+// ==================== WHATSAPP / N8N INTEGRATION ====================
+
+model Message {
+  id        String   @id @default(uuid())
+  clientId  String   @map("client_id")
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  role      String   // "user" or "assistant"
+  type      String   @default("text") // "text", "image", "audio", "document"
+  content   String?  @db.Text
+  
+  // N8N/WhatsApp fields
+  phoneNumber String?  @map("phone_number")
+  direction   String   @default("inbound") // "inbound" or "outbound"
+  mediaUrl    String?  @map("media_url")
+  mediaType   String?  @map("media_type")
+  
+  // AI tracking
+  tokens      Int      @default(0)
+  model       String?
+  
+  // AI analysis (intent detection, sentiment, etc.)
+  intent      String?
+  entities    Json?
+  sentiment   String?
+  urgency     String?
+  aiProcessed Boolean  @default(false) @map("ai_processed")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  @@map("messages")
+  @@index([clientId, createdAt(sort: Desc)])
+  @@index([phoneNumber])
+}
+
+model Intervention {
+  id                    String    @id @default(uuid())
+  clientId              String    @map("client_id")
+  client                Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  quoteId               String?   @map("quote_id")
+  quote                 Quote?    @relation(fields: [quoteId], references: [id])
+  
+  status                String    @default("SCHEDULED") // "SCHEDULED", "IN_PROGRESS", "COMPLETED", "CANCELLED"
+  scheduledDate         DateTime? @map("scheduled_date")
+  address               String?
+  notes                 String?   @db.Text
+  technicianName        String?   @map("technician_name")
+  googleCalendarEventId String?   @map("google_calendar_event_id")
+  
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  
+  @@map("interventions")
+  @@index([clientId])
+  @@index([scheduledDate])
+}
+
+model DailySummary {
+  id            String   @id @default(uuid())
+  date          DateTime @unique @default(now()) @db.Date
+  summaryText   String?  @map("summary_text") @db.Text
+  totalMessages Int      @default(0) @map("total_messages")
+  
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  @@map("daily_summaries")
+}
+
+model ConversationSummary {
+  id             String    @id @default(uuid())
+  phoneNumber    String    @unique @map("phone_number")
+  
+  lastIntent     String?   @map("last_intent")
+  lastMessageAt  DateTime? @map("last_message_at")
+  messageCount   Int       @default(0) @map("message_count")
+  
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  
+  @@map("conversation_summaries")
+  @@index([phoneNumber])
+}
+

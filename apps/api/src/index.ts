@@ -1,3 +1,4 @@
+// Server entry point - restart trigger
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -25,14 +26,16 @@ import { quoteRouter } from './routes/quote.routes';
 import { invoiceRouter } from './routes/invoice.routes';
 
 import { dashboardRouter } from './routes/dashboard.routes';
-import { userSettingsRouter } from './routes/user-settings.routes';
+import { settingsRouter } from './routes/settings.routes';
+// import { externalCatalogRouter } from './routes/external-catalog.routes'; // Disabled until axios/cheerio installed
 
 app.use('/api/auth', authRouter);
 app.use('/api/clients', clientRouter);
 app.use('/api/quotes', quoteRouter);
 app.use('/api/invoices', invoiceRouter);
 app.use('/api/dashboard', dashboardRouter);
-app.use('/api/settings', userSettingsRouter);
+app.use('/api/settings', settingsRouter);
+// app.use('/api/external-catalog', externalCatalogRouter); // Disabled until axios/cheerio installed
 
 
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,42 +10,60 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
     DialogFooter,
 } from '@/components/ui/dialog';
 import { apiClient } from '@/lib/api-client';
 
-interface CreateClientDialogProps {
+interface ClientDialogProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
     onSuccess: () => void;
+    client?: any; // If present, edit mode
 }
 
-export function CreateClientDialog({ onSuccess }: CreateClientDialogProps) {
-    const [open, setOpen] = useState(false);
-    const { register, handleSubmit, reset, formState: { errors } } = useForm();
+export function ClientDialog({ open, onOpenChange, onSuccess, client }: ClientDialogProps) {
+    const { register, handleSubmit, reset } = useForm();
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (open) {
+            if (client) {
+                reset(client);
+            } else {
+                reset({
+                    firstName: '',
+                    lastName: '',
+                    email: '',
+                    phoneNumber: '',
+                    companyName: ''
+                });
+            }
+        }
+    }, [open, client, reset]);
 
     const onSubmit = async (data: any) => {
         setLoading(true);
         try {
-            await apiClient.post('/clients', data);
-            reset();
-            setOpen(false);
+            if (client) {
+                await apiClient.patch(`/clients/${client.id}`, data);
+            } else {
+                await apiClient.post('/clients', data);
+            }
+            onOpenChange(false);
             onSuccess();
         } catch (error) {
-            console.error('Erreur création client', error);
+            console.error('Erreur sauvegarde client', error);
+            alert("Erreur lors de la sauvegarde");
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button>Nouveau Client</Button>
-            </DialogTrigger>
+        <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Ajouter un client</DialogTitle>
+                    <DialogTitle>{client ? 'Modifier le client' : 'Ajouter un client'}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -76,7 +94,7 @@ export function CreateClientDialog({ onSuccess }: CreateClientDialogProps) {
 
                     <DialogFooter>
                         <Button type="submit" disabled={loading}>
-                            {loading ? 'Création...' : 'Créer le client'}
+                            {loading ? 'Sauvegarde...' : (client ? 'Modifier' : 'Créer le client')}
                         </Button>
                     </DialogFooter>
                 </form>
