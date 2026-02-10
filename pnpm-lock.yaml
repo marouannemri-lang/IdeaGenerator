@@ -26,6 +26,9 @@ importers:
       '@talentflow/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      axios:
+        specifier: ^1.13.4
+        version: 1.13.4
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3

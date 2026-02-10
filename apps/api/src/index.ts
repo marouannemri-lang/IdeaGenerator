@@ -29,12 +29,15 @@ import { dashboardRouter } from './routes/dashboard.routes';
 import { settingsRouter } from './routes/settings.routes';
 // import { externalCatalogRouter } from './routes/external-catalog.routes'; // Disabled until axios/cheerio installed
 
+import conseilIARouter from './routes/conseil-ia.routes';
+
 app.use('/api/auth', authRouter);
 app.use('/api/clients', clientRouter);
 app.use('/api/quotes', quoteRouter);
 app.use('/api/invoices', invoiceRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/conseil-ia', conseilIARouter);
 // app.use('/api/external-catalog', externalCatalogRouter); // Disabled until axios/cheerio installed
 
 
